@@ -1,0 +1,52 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 1 - Get files
+        uses: actions/checkout@v5
+
+      - name: 2 - Arrange files
+        run: |
+          mkdir -p www scripts
+          for f in index.html app.js parser.js style.css; do if [ -f "$f" ]; then mv "$f" www/; fi; done
+          for f in copy-vendor.js patch-android.js; do if [ -f "$f" ]; then mv "$f" scripts/; fi; done
+          ls -R www scripts
+
+      - name: 3 - Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: 4 - Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: 5 - Install packages
+        run: npm install
+
+      - name: 6 - Create Android project
+        run: |
+          npm run vendor
+          npx cap add android
+          node scripts/patch-android.js
+          npx cap sync android
+          node scripts/patch-android.js
+
+      - name: 7 - Build APK
+        working-directory: android
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: 8 - Upload APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: dhakkirni-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
