@@ -1,0 +1,12 @@
+{
+  "appId": "com.fourgtvbox.dhakkirni",
+  "appName": "ذكّرني",
+  "webDir": "www",
+  "android": { "backgroundColor": "#0b1220" },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_reminder",
+      "iconColor": "#22c55e"
+    }
+  }
+}

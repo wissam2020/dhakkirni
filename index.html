@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <title>ذكّرني</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>ذكّرني</h1>
+      <p id="todayLabel" class="muted"></p>
+    </div>
+    <button id="btnSettings" class="icon-btn" aria-label="الإعدادات">⚙️</button>
+  </header>
+
+  <nav class="filters" id="filters">
+    <button data-cat="all" class="chip active">الكل</button>
+    <button data-cat="work" class="chip">💼 شغل</button>
+    <button data-cat="home" class="chip">🏠 بيت</button>
+    <button data-cat="assoc" class="chip">🤝 جمعية</button>
+    <button data-cat="personal" class="chip">👤 شخصي</button>
+  </nav>
+
+  <main id="list"></main>
+
+  <div id="emptyState" class="empty hidden">
+    <div class="empty-icon">🎙️</div>
+    <p>ما في تذكيرات بعد</p>
+    <p class="muted">اكبس عالميكروفون واحكي، مثلاً:<br>«ذكّرني بكرا الساعة 5 إدفع اشتراك أحمد»</p>
+  </div>
+
+  <footer class="composer">
+    <input id="quickInput" type="text" placeholder="اكتب: ذكّرني بعد ساعة…" autocomplete="off" enterkeyhint="send">
+    <button id="btnMic" class="mic" aria-label="احكي">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
+    </button>
+  </footer>
+
+  <div id="listening" class="listening hidden">
+    <div class="pulse"></div>
+    <p>عم إسمعك… احكي</p>
+    <p id="partial" class="muted"></p>
+    <button id="btnStopListen" class="btn ghost">وقّف</button>
+  </div>
+
+  <!-- Edit / confirm sheet -->
+  <div id="sheet" class="sheet-backdrop hidden">
+    <form id="form" class="sheet">
+      <div class="grabber"></div>
+      <h2 id="sheetTitle">تذكير جديد</h2>
+      <label>شو بدك تتذكّر؟
+        <textarea id="fText" rows="2" required></textarea>
+      </label>
+      <p id="heard" class="heard hidden"></p>
+      <div class="row">
+        <label>اليوم والساعة
+          <input id="fAt" type="datetime-local" required>
+        </label>
+      </div>
+      <div class="quick-times">
+        <button type="button" data-q="+10m" class="chip sm">بعد 10 د</button>
+        <button type="button" data-q="+1h" class="chip sm">بعد ساعة</button>
+        <button type="button" data-q="tonight" class="chip sm">الليلة 8</button>
+        <button type="button" data-q="tomorrow" class="chip sm">بكرا 9</button>
+      </div>
+      <label>التكرار
+        <select id="fRepeat">
+          <option value="none">مرّة وحدة</option>
+          <option value="daily">كل يوم</option>
+          <option value="weekly">كل أسبوع</option>
+          <option value="monthly">كل شهر</option>
+        </select>
+      </label>
+      <div class="cat-pick" id="catPick">
+        <button type="button" data-cat="personal" class="chip sm active">👤 شخصي</button>
+        <button type="button" data-cat="work" class="chip sm">💼 شغل</button>
+        <button type="button" data-cat="home" class="chip sm">🏠 بيت</button>
+        <button type="button" data-cat="assoc" class="chip sm">🤝 جمعية</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnDelete" class="btn danger hidden">إحذف</button>
+        <button type="button" id="btnCancel" class="btn ghost">إلغاء</button>
+        <button type="submit" class="btn primary">احفظ ✓</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Settings sheet -->
+  <div id="settings" class="sheet-backdrop hidden">
+    <div class="sheet">
+      <div class="grabber"></div>
+      <h2>الإعدادات</h2>
+      <label>لغة الصوت
+        <select id="sLang">
+          <option value="ar-LB">عربي (لبناني)</option>
+          <option value="ar-SA">عربي (فصحى)</option>
+          <option value="fr-FR">Français</option>
+        </select>
+      </label>
+      <label>مدة التأجيل
+        <select id="sSnooze">
+          <option value="5">5 دقايق</option>
+          <option value="10">10 دقايق</option>
+          <option value="15">15 دقيقة</option>
+          <option value="30">نص ساعة</option>
+          <option value="60">ساعة</option>
+        </select>
+      </label>
+      <div class="card">
+        <strong>✅ تأكد إنو التذكير بيوصل بوقتو</strong>
+        <ol class="steps">
+          <li><button class="btn sm" id="btnPerm">سمح بالإشعارات والميكروفون</button></li>
+          <li><button class="btn sm" id="btnExact">سمح بالتنبيهات الدقيقة</button> <span id="exactState" class="muted"></span></li>
+          <li>من إعدادات التلفون ← التطبيقات ← <b>ذكّرني</b> ← البطارية: اختار <b>بلا قيود / Unrestricted</b></li>
+          <li>على Xiaomi / Tecno / Infinix / Itel: فعّل <b>التشغيل التلقائي (Autostart)</b> للتطبيق</li>
+        </ol>
+        <button class="btn primary sm" id="btnTest">جرّب تذكير بعد 10 ثواني</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnClearDone" class="btn ghost">إمسح اللي خلصوا</button>
+        <button type="button" id="btnCloseSettings" class="btn primary">تمام</button>
+      </div>
+      <p class="muted center">ذكّرني v1.0 — 4GTVBOX</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="vendor/capacitor.js"></script>
+  <script src="vendor/local-notifications.js"></script>
+  <script src="vendor/speech-recognition.js"></script>
+  <script src="parser.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
