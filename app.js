@@ -48,6 +48,7 @@
     return `${h}:${m} ${p}`;
   }
   function fmtWhen(d) {
+    if (!d) return 'بلا وقت';
     const now = new Date();
     const tmr = new Date(now); tmr.setDate(now.getDate() + 1);
     if (sameDay(d, now)) return `اليوم ${fmtTime(d)}`;
@@ -59,6 +60,7 @@
 
   // next occurrence for repeating items (keeps list sorted correctly)
   function nextOccurrence(item, from = new Date()) {
+    if (!item.at) return null;
     const d = new Date(item.at);
     if (item.repeat === 'none') return d;
     let guard = 0;
@@ -124,6 +126,7 @@
 
   async function scheduleItem(item) {
     await cancelItem(item);
+    if (!item.at) return;
     if (item.done && item.repeat === 'none') return;
     if (item.repeat === 'none' && new Date(item.at) <= new Date()) return;
     const n = {
@@ -254,7 +257,7 @@
 
   function handleSpoken(text) {
     const r = window.parseReminder(text);
-    openForm(null, { text: r.task, at: r.at, repeat: r.repeat, heard: text, confident: r.confident });
+    openForm(null, { text: r.task, at: r.confident ? r.at : null, repeat: r.repeat, heard: text, confident: r.confident, noTime: !r.confident });
   }
 
   // ───────── form ─────────
@@ -263,40 +266,53 @@
     const src = item || draft || {};
     $('sheetTitle').textContent = item ? 'تعديل التذكير' : 'تذكير جديد';
     $('fText').value = src.text || '';
-    const at = src.at ? new Date(src.at) : new Date(Date.now() + 3600000);
-    $('fAt').value = toLocalInput(item ? nextOccurrence(item) : at);
+    const hasTime = item ? !!item.at : !(draft && draft.noTime);
+    const at = src.at ? (item ? nextOccurrence(item) : new Date(src.at)) : new Date(Date.now() + 3600000);
+    $('fAt').value = toLocalInput(at);
+    setHasTime(hasTime);
     $('fRepeat').value = src.repeat || 'none';
     formCat = src.cat || 'personal';
     document.querySelectorAll('#catPick .chip').forEach(b => b.classList.toggle('active', b.dataset.cat === formCat));
     $('btnDelete').classList.toggle('hidden', !item);
     const heard = $('heard');
     if (draft && draft.heard) {
-      heard.textContent = `سمعت: «${draft.heard}»` + (draft.confident ? '' : ' — ما حددت وقت، اختار إنت');
+      heard.textContent = `سمعت: «${draft.heard}»` + (draft.confident ? '' : ' — ما في وقت، رح ينحفظ بلا تذكير. فيك تفعّل الوقت.');
       heard.classList.remove('hidden');
     } else heard.classList.add('hidden');
     $('sheet').classList.remove('hidden');
   }
+  function setHasTime(on) {
+    $('fHasTime').checked = on;
+    $('timeFields').classList.toggle('hidden', !on);
+  }
+  $('fHasTime').addEventListener('change', (e) => setHasTime(e.target.checked));
+
   function closeForm() { $('sheet').classList.add('hidden'); editing = null; }
 
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = $('fText').value.trim();
-    const at = new Date($('fAt').value);
-    const repeat = $('fRepeat').value;
-    if (!text || isNaN(at)) return;
-    if (repeat === 'none' && at <= new Date()) { toast('الوقت لازم يكون بالمستقبل'); return; }
-    await ensurePermissions(true);
+    const hasTime = $('fHasTime').checked;
+    const at = hasTime ? new Date($('fAt').value) : null;
+    const repeat = hasTime ? $('fRepeat').value : 'none';
+    if (!text) return;
+    if (hasTime) {
+      if (isNaN(at)) { toast('اختار الوقت'); return; }
+      if (repeat === 'none' && at <= new Date()) { toast('الوقت لازم يكون بالمستقبل'); return; }
+      await ensurePermissions(true);
+    }
+    const atIso = at ? at.toISOString() : null;
     let item = editing;
     if (item) {
-      Object.assign(item, { text, at: at.toISOString(), repeat, cat: formCat, done: false });
+      Object.assign(item, { text, at: atIso, repeat, cat: formCat, done: false });
     } else {
-      item = { id: 'r' + Date.now().toString(36), notifId: nextNotifId(), text, at: at.toISOString(), repeat, cat: formCat, done: false, created: new Date().toISOString() };
+      item = { id: 'r' + Date.now().toString(36), notifId: nextNotifId(), text, at: atIso, repeat, cat: formCat, done: false, created: new Date().toISOString() };
       items.push(item);
     }
     save();
     await scheduleItem(item);
     closeForm(); render();
-    toast(`✓ رح ذكّرك ${fmtWhen(nextOccurrence(item))}`);
+    toast(item.at ? `✓ رح ذكّرك ${fmtWhen(nextOccurrence(item))}` : '✓ انحفظت بلا وقت');
   });
 
   $('btnCancel').onclick = closeForm;
@@ -330,22 +346,24 @@
 
     const endToday = new Date(now); endToday.setHours(23, 59, 59, 999);
     const endTomorrow = new Date(endToday); endTomorrow.setDate(endTomorrow.getDate() + 1);
-    const groups = { overdue: [], today: [], tomorrow: [], later: [], repeat: [], done: [] };
+    const groups = { overdue: [], today: [], tomorrow: [], later: [], notime: [], repeat: [], done: [] };
 
     for (const it of visible) {
       if (it.repeat !== 'none') { groups.repeat.push(it); continue; }
       if (it.done) { groups.done.push(it); continue; }
+      if (!it.at) { groups.notime.push(it); continue; }
       const d = new Date(it.at);
       if (d < now) groups.overdue.push(it);
       else if (d <= endToday) groups.today.push(it);
       else if (d <= endTomorrow) groups.tomorrow.push(it);
       else groups.later.push(it);
     }
-    const byTime = (a, b) => nextOccurrence(a) - nextOccurrence(b);
+    const key = (i) => { const d = nextOccurrence(i); return d ? d.getTime() : new Date(i.created).getTime(); };
+    const byTime = (a, b) => key(a) - key(b);
     Object.values(groups).forEach(g => g.sort(byTime));
     groups.done.reverse();
 
-    const titles = { overdue: '⚠️ فات وقتهم', today: 'اليوم', tomorrow: 'بكرا', later: 'بعدين', repeat: 'متكرّرين', done: 'خلصوا' };
+    const titles = { overdue: '⚠️ فات وقتهم', today: 'اليوم', tomorrow: 'بكرا', later: 'بعدين', notime: '📝 بلا وقت', repeat: 'متكرّرين', done: 'خلصوا' };
     list.innerHTML = '';
     for (const key of Object.keys(groups)) {
       const g = groups[key]; if (!g.length) continue;

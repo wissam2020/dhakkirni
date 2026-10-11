@@ -55,9 +55,14 @@
         <textarea id="fText" rows="2" required></textarea>
       </label>
       <p id="heard" class="heard hidden"></p>
+      <label class="toggle-row">⏰ ذكّرني بوقت محدد
+        <input id="fHasTime" type="checkbox" checked>
+        <span class="switch"></span>
+      </label>
+      <div id="timeFields">
       <div class="row">
         <label>اليوم والساعة
-          <input id="fAt" type="datetime-local" required>
+          <input id="fAt" type="datetime-local">
         </label>
       </div>
       <div class="quick-times">
@@ -74,6 +79,7 @@
           <option value="monthly">كل شهر</option>
         </select>
       </label>
+      </div>
       <div class="cat-pick" id="catPick">
         <button type="button" data-cat="personal" class="chip sm active">👤 شخصي</button>
         <button type="button" data-cat="work" class="chip sm">💼 شغل</button>
